@@ -9,7 +9,7 @@ Usage
 -----
     python main.py --image path/to/your_image.jpg --key "MySecretKey123"
 
-If you omit --image, a built-in sample photo (skimage's "astronaut") is used
+If you omit --image, a built-in sample photo (skimage's "astronaut" or local "image.png") is used
 so the script runs immediately with zero setup.
 
 Outputs (written to the ./output folder):
@@ -22,35 +22,35 @@ import argparse
 import os
 import sys
 
-import cv2
 import numpy as np
 import matplotlib
 matplotlib.use("Agg")  # safe for headless runs; VS Code will still show saved PNGs
 import matplotlib.pyplot as plt
+from PIL import Image
 
 from chaos_image_cipher import IMG_SIZE, encrypt_image, decrypt_image
 import metrics as M
 
 
 def load_image(path: str | None) -> np.ndarray:
-    """Load an image as BGR uint8 and resize to IMG_SIZE x IMG_SIZE.
-    Falls back to a bundled sample photo if no path is given / file missing.
-    """
+    """Load an image as BGR uint8 and resize to IMG_SIZE x IMG_SIZE using Pillow."""
     if path and os.path.isfile(path):
-        img = cv2.imread(path, cv2.IMREAD_COLOR)
-        if img is None:
-            raise ValueError(f"Could not read image at: {path}")
+        pil_img = Image.open(path).convert("RGB")
+    elif os.path.isfile("image.png"):
+        print("[i] Using local sample image 'image.png'.")
+        pil_img = Image.open("image.png").convert("RGB")
     else:
-        if path:
-            print(f'[!] Could not find "{path}" — using the built-in sample image instead.')
-        else:
-            print("[i] No --image given — using the built-in sample image.")
+        print("[i] Using built-in sample image (astronaut).")
         from skimage import data
-        rgb = data.astronaut()  # 512x512x3 RGB sample image, ships with scikit-image
-        img = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
+        rgb = data.astronaut()
+        pil_img = Image.fromarray(rgb)
 
-    img = cv2.resize(img, (IMG_SIZE, IMG_SIZE), interpolation=cv2.INTER_AREA)
-    return img.astype(np.uint8)
+    resample = getattr(Image, "Resampling", Image).LANCZOS
+    pil_resized = pil_img.resize((IMG_SIZE, IMG_SIZE), resample=resample)
+    rgb_arr = np.array(pil_resized, dtype=np.uint8)
+    # Convert RGB to BGR for standard paper pipeline
+    bgr_arr = rgb_arr[:, :, ::-1].copy()
+    return bgr_arr
 
 
 def flip_one_pixel(img: np.ndarray) -> np.ndarray:
@@ -62,12 +62,19 @@ def flip_one_pixel(img: np.ndarray) -> np.ndarray:
     return modified
 
 
+def save_image_bgr(img_bgr: np.ndarray, out_path: str):
+    """Save BGR array as lossless PNG using Pillow."""
+    rgb = img_bgr[:, :, ::-1]
+    pil_img = Image.fromarray(rgb)
+    pil_img.save(out_path, format="PNG")
+
+
 def save_side_by_side(original, cipher, decrypted, out_path):
     fig, axes = plt.subplots(1, 3, figsize=(12, 4.2))
     for ax, img, title in zip(
         axes, [original, cipher, decrypted], ["Original", "Encrypted (Cipher)", "Decrypted"]
     ):
-        ax.imshow(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
+        ax.imshow(img[:, :, ::-1])
         ax.set_title(title)
         ax.axis("off")
     fig.suptitle("Secure Image Encryption — 5D Hyper-chaotic Keystream + 3D Pixel Scrambling")
@@ -81,7 +88,7 @@ def save_histograms(original, cipher, out_path):
     for ax, img, title in zip(axes, [original, cipher], ["Original histogram", "Cipher histogram"]):
         colors = ("b", "g", "r")
         for c, col in enumerate(colors):
-            hist = cv2.calcHist([img], [c], None, [256], [0, 256]).flatten()
+            hist, _ = np.histogram(img[:, :, c], bins=256, range=(0, 256))
             ax.plot(hist, color=col, linewidth=0.8)
         ax.set_title(title)
         ax.set_xlim(0, 255)
@@ -154,9 +161,9 @@ def main():
     print("-" * 70)
 
     # Save images + plots -----------------------------------------------------
-    cv2.imwrite(os.path.join(args.outdir, "original.png"), original)
-    cv2.imwrite(os.path.join(args.outdir, "cipher.png"), cipher)
-    cv2.imwrite(os.path.join(args.outdir, "decrypted.png"), decrypted)
+    save_image_bgr(original, os.path.join(args.outdir, "original.png"))
+    save_image_bgr(cipher, os.path.join(args.outdir, "cipher.png"))
+    save_image_bgr(decrypted, os.path.join(args.outdir, "decrypted.png"))
     save_side_by_side(original, cipher, decrypted, os.path.join(args.outdir, "summary.png"))
     save_histograms(original, cipher, os.path.join(args.outdir, "histograms.png"))
 

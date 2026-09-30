@@ -19,7 +19,6 @@ import os
 import time
 from typing import Optional
 
-import cv2
 import matplotlib.pyplot as plt
 import numpy as np
 from PIL import Image
@@ -422,6 +421,24 @@ def rgb_array_to_png_bytes(rgb_img: np.ndarray) -> bytes:
     return buffer.getvalue()
 
 
+def resize_image_rgb(img_array: np.ndarray, target_size: tuple[int, int]) -> np.ndarray:
+    """Resize uint8 RGB array to (width, height) using Pillow."""
+    pil_img = Image.fromarray(img_array)
+    resample = getattr(Image, "Resampling", Image).LANCZOS
+    return np.array(pil_img.resize(target_size, resample=resample), dtype=np.uint8)
+
+
+def rgb_to_bgr(img_rgb: np.ndarray) -> np.ndarray:
+    """Lossless RGB to BGR channel swap via NumPy."""
+    return img_rgb[:, :, ::-1].copy()
+
+
+def bgr_to_rgb(img_bgr: np.ndarray) -> np.ndarray:
+    """Lossless BGR to RGB channel swap via NumPy."""
+    return img_bgr[:, :, ::-1].copy()
+
+
+
 # -----------------------------------------------------------------------------
 # Navigation Synchronization Callbacks
 # -----------------------------------------------------------------------------
@@ -681,16 +698,16 @@ if page_choice == "🛡️ Encrypt & Decrypt Studio":
 
                             # Apply resolution handling
                             if "512×512" in resolution_mode:
-                                work_img = cv2.resize(work_img, (512, 512), interpolation=cv2.INTER_AREA)
+                                work_img = resize_image_rgb(work_img, (512, 512))
 
                             # Run cipher
                             if "Ultra-Fast" in cipher_mode:
                                 cipher_rgb = cipher.encrypt_fast_stream(work_img, key_for_enc)
                             elif "512×512" in resolution_mode:
                                 # Convert RGB to BGR for standard paper pipeline, then back
-                                bgr = cv2.cvtColor(work_img, cv2.COLOR_RGB2BGR)
+                                bgr = rgb_to_bgr(work_img)
                                 cipher_bgr = cipher.encrypt_image(bgr, key_for_enc, rounds=diffusion_rounds)
-                                cipher_rgb = cv2.cvtColor(cipher_bgr, cv2.COLOR_BGR2RGB)
+                                cipher_rgb = bgr_to_rgb(cipher_bgr)
                             else:
                                 cipher_rgb = cipher.encrypt_image_flexible(work_img, key_for_enc, rounds=diffusion_rounds)
 
@@ -795,9 +812,9 @@ if page_choice == "🛡️ Encrypt & Decrypt Studio":
                             if "Ultra-Fast" in cipher_mode:
                                 restored_rgb = cipher.decrypt_fast_stream(work_cipher, test_key)
                             elif "512×512" in resolution_mode and work_cipher.shape[:2] == (512, 512):
-                                bgr_c = cv2.cvtColor(work_cipher, cv2.COLOR_RGB2BGR)
+                                bgr_c = rgb_to_bgr(work_cipher)
                                 restored_bgr = cipher.decrypt_image(bgr_c, test_key, rounds=diffusion_rounds)
-                                restored_rgb = cv2.cvtColor(restored_bgr, cv2.COLOR_BGR2RGB)
+                                restored_rgb = bgr_to_rgb(restored_bgr)
                             else:
                                 restored_rgb = cipher.decrypt_image_flexible(work_cipher, test_key, rounds=diffusion_rounds)
 
@@ -879,17 +896,17 @@ if page_choice == "🛡️ Encrypt & Decrypt Studio":
                     loop_img = active_loop_img.copy()
 
                     if "512×512" in resolution_mode:
-                        loop_img = cv2.resize(loop_img, (512, 512), interpolation=cv2.INTER_AREA)
+                        loop_img = resize_image_rgb(loop_img, (512, 512))
 
                     if "Ultra-Fast" in cipher_mode:
                         c_img = cipher.encrypt_fast_stream(loop_img, loop_key)
                         d_img = cipher.decrypt_fast_stream(c_img, loop_key)
                     elif "512×512" in resolution_mode:
-                        bgr = cv2.cvtColor(loop_img, cv2.COLOR_RGB2BGR)
+                        bgr = rgb_to_bgr(loop_img)
                         c_bgr = cipher.encrypt_image(bgr, loop_key, rounds=diffusion_rounds)
                         d_bgr = cipher.decrypt_image(c_bgr, loop_key, rounds=diffusion_rounds)
-                        c_img = cv2.cvtColor(c_bgr, cv2.COLOR_BGR2RGB)
-                        d_img = cv2.cvtColor(d_bgr, cv2.COLOR_BGR2RGB)
+                        c_img = bgr_to_rgb(c_bgr)
+                        d_img = bgr_to_rgb(d_bgr)
                     else:
                         c_img = cipher.encrypt_image_flexible(loop_img, loop_key, rounds=diffusion_rounds)
                         d_img = cipher.decrypt_image_flexible(c_img, loop_key, rounds=diffusion_rounds)
@@ -1112,7 +1129,7 @@ elif page_choice == "📊 Security & Metrics Analysis":
             else:
                 from skimage import data
                 sample_rgb = data.astronaut()
-            sample_rgb = cv2.resize(sample_rgb, (512, 512))
+            sample_rgb = resize_image_rgb(sample_rgb, (512, 512))
             st.session_state["last_orig_array"] = sample_rgb
             st.session_state["last_cipher_array"] = cipher.encrypt_image_flexible(sample_rgb, st.session_state["secret_key"], rounds=1)
             st.rerun()
@@ -1122,7 +1139,7 @@ elif page_choice == "📊 Security & Metrics Analysis":
 
         # Ensure same size for metric calculations
         if orig.shape != ciph.shape:
-            orig = cv2.resize(orig, (ciph.shape[1], ciph.shape[0]))
+            orig = resize_image_rgb(orig, (ciph.shape[1], ciph.shape[0]))
 
         col_m1, col_m2, col_m3, col_m4 = st.columns(4)
         with col_m1:
