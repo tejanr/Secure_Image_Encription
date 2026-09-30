@@ -8,12 +8,14 @@ A Streamlit web application providing:
   - Password-Protected Encrypted Key Vault (.keyvault download & unlock)
   - Local session storage & browser persistence
   - Live Security Metrics & Histograms (Entropy, NPCR, UACI, PSNR, SSIM)
+  - Fully Responsive Mobile & Desktop Layout (Streamlit Cloud Ready)
 """
 
 from __future__ import annotations
 
 import io
 import json
+import os
 import time
 from typing import Optional
 
@@ -36,119 +38,325 @@ st.set_page_config(
     page_title="Team Image Encryptor | Secure Chaos Crypto Studio",
     page_icon="🔐",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="auto",  # Automatically collapse on mobile to preserve viewport space
 )
 
 # -----------------------------------------------------------------------------
-# Custom Cyber Dark CSS
+# Custom Responsive Cyber Dark CSS
 # -----------------------------------------------------------------------------
 
 CUSTOM_CSS = """
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 
+    /* Global Typography & Resets */
     html, body, [class*="css"] {
-        font-family: 'Plus Jakarta Sans', sans-serif;
+        font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+        -webkit-tap-highlight-color: transparent;
     }
 
     code, pre, .mono-font {
         font-family: 'JetBrains Mono', monospace !important;
+        word-break: break-all;
     }
 
-    /* Gradient header styling */
+    /* Gradient Header Typography */
     .hero-title {
-        font-size: 2.2rem;
+        font-size: 2.1rem;
         font-weight: 800;
         background: linear-gradient(135deg, #38bdf8 0%, #818cf8 50%, #c084fc 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
-        margin-bottom: 0.25rem;
+        margin-bottom: 0.2rem;
+        letter-spacing: -0.02em;
     }
 
     .hero-subtitle {
-        font-size: 0.95rem;
+        font-size: 0.92rem;
         color: #94a3b8;
-        margin-bottom: 1.5rem;
+        margin-bottom: 1.1rem;
+        line-height: 1.5;
     }
 
-    /* Card styling */
+    /* Cyber Card Container */
     .crypto-card {
-        background: linear-gradient(180deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.8) 100%);
+        background: linear-gradient(180deg, rgba(30, 41, 59, 0.75) 0%, rgba(15, 23, 42, 0.85) 100%);
         border: 1px solid rgba(56, 189, 248, 0.2);
         border-radius: 12px;
-        padding: 1.25rem;
-        box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.3);
-        margin-bottom: 1.25rem;
+        padding: 1.15rem;
+        box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.35);
+        margin-bottom: 1.15rem;
     }
 
-    /* Status badge */
-    .badge-ready {
+    /* Active Secret Key Banner */
+    .key-banner {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 10px;
+        padding: 0.85rem 1.15rem;
+        background: linear-gradient(180deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.85) 100%);
+        border: 1px solid rgba(56, 189, 248, 0.25);
+        border-radius: 12px;
+        margin-bottom: 1rem;
+    }
+
+    .key-text-wrap {
+        font-family: 'JetBrains Mono', monospace;
+        color: #38bdf8;
+        font-size: 0.92rem;
+        background: rgba(15, 23, 42, 0.75);
+        padding: 0.25rem 0.6rem;
+        border-radius: 6px;
+        border: 1px solid rgba(56, 189, 248, 0.15);
+        word-break: break-all;
+        max-width: 100%;
         display: inline-block;
+    }
+
+    /* Status Badges */
+    .badge-ready {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
         background: rgba(16, 185, 129, 0.15);
         border: 1px solid #10b981;
         color: #34d399;
-        font-size: 0.8rem;
+        font-size: 0.78rem;
         font-weight: 600;
         padding: 0.2rem 0.65rem;
         border-radius: 9999px;
+        white-space: nowrap;
     }
 
     .badge-algo {
-        display: inline-block;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
         background: rgba(56, 189, 248, 0.15);
         border: 1px solid #38bdf8;
         color: #38bdf8;
-        font-size: 0.8rem;
+        font-size: 0.78rem;
         font-weight: 600;
         padding: 0.2rem 0.65rem;
         border-radius: 9999px;
+        white-space: nowrap;
     }
 
-    /* Callout notice */
+    /* Callout Notice */
     .team-notice {
-        background: rgba(15, 23, 42, 0.85);
+        background: rgba(15, 23, 42, 0.88);
         border-left: 4px solid #38bdf8;
         border-radius: 8px;
         padding: 0.85rem 1rem;
-        margin-top: 1rem;
         font-size: 0.88rem;
         color: #cbd5e1;
+        line-height: 1.55;
     }
 
-    /* Buttons styling */
+    /* Buttons Styling & Mobile Touch Targets */
     div.stButton > button {
-        border-radius: 8px;
-        font-weight: 600;
-        transition: all 0.2s ease-in-out;
+        border-radius: 10px !important;
+        font-weight: 600 !important;
+        min-height: 44px !important;
+        padding: 0.6rem 1rem !important;
+        transition: all 0.15s ease-in-out !important;
+        touch-action: manipulation !important;
+    }
+    div.stButton > button:active {
+        transform: scale(0.98) !important;
     }
 
     div.stDownloadButton > button {
-        border-radius: 8px;
-        font-weight: 600;
+        border-radius: 10px !important;
+        font-weight: 700 !important;
+        min-height: 46px !important;
+        padding: 0.65rem 1rem !important;
         background: linear-gradient(135deg, #059669 0%, #10b981 100%) !important;
         color: white !important;
         border: none !important;
+        box-shadow: 0 4px 14px rgba(16, 185, 129, 0.3) !important;
+        touch-action: manipulation !important;
+    }
+    div.stDownloadButton > button:active {
+        transform: scale(0.98) !important;
     }
 
-    /* Metric cards */
+    /* Metric Cards */
     .metric-box {
-        background: rgba(30, 41, 59, 0.5);
-        border: 1px solid rgba(148, 163, 184, 0.15);
-        border-radius: 8px;
-        padding: 0.75rem;
+        background: rgba(30, 41, 59, 0.6);
+        border: 1px solid rgba(148, 163, 184, 0.18);
+        border-radius: 10px;
+        padding: 0.75rem 0.5rem;
         text-align: center;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
     }
     .metric-value {
-        font-size: 1.35rem;
+        font-size: 1.3rem;
         font-weight: 700;
         color: #38bdf8;
         font-family: 'JetBrains Mono', monospace;
+        word-break: break-all;
     }
     .metric-label {
-        font-size: 0.75rem;
+        font-size: 0.74rem;
         color: #94a3b8;
         text-transform: uppercase;
         letter-spacing: 0.05em;
+        margin-top: 0.2rem;
+    }
+
+    /* Top Navigation bar */
+    div[data-testid="stSegmentedControl"] {
+        margin-bottom: 1.15rem !important;
+    }
+
+    /* Smooth Touch Tabs */
+    div[data-testid="stTabs"] button[role="tab"] {
+        padding: 0.55rem 0.95rem !important;
+        font-size: 0.92rem !important;
+        font-weight: 600 !important;
+    }
+
+    /* Responsive Table Container */
+    .responsive-table-wrapper {
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        margin-top: 0.5rem;
+        border-radius: 8px;
+    }
+
+    /* ========================================================================= */
+    /* RESPONSIVE MEDIA QUERIES (Mobile & Tablet)                                 */
+    /* ========================================================================= */
+
+    @media (max-width: 768px) {
+        /* Optimize block container padding on mobile screens */
+        .block-container {
+            padding-top: 1rem !important;
+            padding-bottom: 2rem !important;
+            padding-left: 0.65rem !important;
+            padding-right: 0.65rem !important;
+            max-width: 100% !important;
+        }
+
+        /* Hero Typography */
+        .hero-title {
+            font-size: 1.55rem !important;
+            line-height: 1.25 !important;
+        }
+        .hero-subtitle {
+            font-size: 0.82rem !important;
+            margin-bottom: 0.85rem !important;
+        }
+
+        /* Crypto Card */
+        .crypto-card {
+            padding: 0.85rem !important;
+            border-radius: 10px !important;
+            margin-bottom: 0.85rem !important;
+        }
+
+        /* Key banner layout on mobile */
+        .key-banner {
+            flex-direction: column !important;
+            align-items: flex-start !important;
+            gap: 8px !important;
+            padding: 0.75rem 0.85rem !important;
+        }
+        .key-text-wrap {
+            font-size: 0.82rem !important;
+            padding: 0.2rem 0.45rem !important;
+        }
+
+        /* Responsive Columns on Mobile */
+        div[data-testid="stHorizontalBlock"] {
+            flex-wrap: wrap !important;
+            gap: 0.65rem !important;
+        }
+
+        /* Standard 2-column layout stacks vertically (100% width each) */
+        div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
+            min-width: 100% !important;
+            flex: 1 1 100% !important;
+        }
+
+        /* 4-column metric blocks adapt into a 2x2 grid */
+        div[data-testid="stHorizontalBlock"]:has(> div:nth-child(4)) > div[data-testid="column"] {
+            min-width: calc(50% - 0.4rem) !important;
+            flex: 1 1 calc(50% - 0.4rem) !important;
+        }
+
+        /* Metric cards inside 2x2 grid */
+        .metric-box {
+            padding: 0.6rem 0.35rem !important;
+        }
+        .metric-value {
+            font-size: 1.12rem !important;
+        }
+        .metric-label {
+            font-size: 0.68rem !important;
+        }
+
+        /* Buttons: thumb friendly 46px min height */
+        div.stButton > button, div.stDownloadButton > button {
+            min-height: 46px !important;
+            font-size: 0.92rem !important;
+            width: 100% !important;
+        }
+
+        /* Swipeable horizontal tabs */
+        div[data-testid="stTabs"] [role="tablist"] {
+            overflow-x: auto !important;
+            flex-wrap: nowrap !important;
+            -webkit-overflow-scrolling: touch !important;
+            scrollbar-width: none !important;
+        }
+        div[data-testid="stTabs"] [role="tablist"]::-webkit-scrollbar {
+            display: none !important;
+        }
+        div[data-testid="stTabs"] button[role="tab"] {
+            padding: 0.5rem 0.75rem !important;
+            font-size: 0.85rem !important;
+            white-space: nowrap !important;
+        }
+
+        /* Code and Pre blocks */
+        code, pre, .stCodeBlock {
+            font-size: 0.8rem !important;
+            word-break: break-all !important;
+        }
+
+        /* Notice banner */
+        .team-notice {
+            font-size: 0.82rem !important;
+            padding: 0.75rem !important;
+        }
+
+        /* Images on mobile */
+        div[data-testid="stImage"] img {
+            border-radius: 10px !important;
+            max-width: 100% !important;
+            object-fit: contain !important;
+        }
+    }
+
+    @media (max-width: 480px) {
+        .hero-title {
+            font-size: 1.38rem !important;
+        }
+        .metric-value {
+            font-size: 1.0rem !important;
+        }
+        .metric-label {
+            font-size: 0.65rem !important;
+        }
     }
 </style>
 """
@@ -156,10 +364,24 @@ st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
 
 
 # -----------------------------------------------------------------------------
+# Navigation Pages Definition
+# -----------------------------------------------------------------------------
+
+NAV_PAGES = [
+    "🛡️ Encrypt & Decrypt Studio",
+    "🔑 Key Generator & Vault",
+    "📊 Security & Metrics Analysis",
+    "📖 Team Protocol & Guide",
+]
+
+
+# -----------------------------------------------------------------------------
 # Session State Initialization
 # -----------------------------------------------------------------------------
 
 def init_session_state():
+    if "nav_page" not in st.session_state:
+        st.session_state["nav_page"] = NAV_PAGES[0]
     if "secret_key" not in st.session_state:
         st.session_state["secret_key"] = "EWCE-CSE-Phase1-DemoKey"
     if "key_history" not in st.session_state:
@@ -201,6 +423,19 @@ def rgb_array_to_png_bytes(rgb_img: np.ndarray) -> bytes:
 
 
 # -----------------------------------------------------------------------------
+# Navigation Synchronization Callbacks
+# -----------------------------------------------------------------------------
+
+def on_sidebar_nav_change():
+    st.session_state["nav_page"] = st.session_state["sidebar_nav_radio"]
+
+def on_top_nav_change():
+    choice = st.session_state.get("top_nav_selector")
+    if choice:
+        st.session_state["nav_page"] = choice
+
+
+# -----------------------------------------------------------------------------
 # Sidebar Configuration & Quick Controls
 # -----------------------------------------------------------------------------
 
@@ -213,15 +448,13 @@ with st.sidebar:
     )
     st.markdown("---")
 
-    page_choice = st.radio(
+    current_nav_idx = NAV_PAGES.index(st.session_state["nav_page"]) if st.session_state["nav_page"] in NAV_PAGES else 0
+    st.radio(
         "Navigation",
-        [
-            "🛡️ Encrypt & Decrypt Studio",
-            "🔑 Key Generator & Vault",
-            "📊 Security & Metrics Analysis",
-            "📖 Team Protocol & Guide",
-        ],
-        index=0,
+        NAV_PAGES,
+        index=current_nav_idx,
+        key="sidebar_nav_radio",
+        on_change=on_sidebar_nav_change,
     )
 
     st.markdown("---")
@@ -280,7 +513,40 @@ with st.sidebar:
             st.session_state["secret_key"] = "EWCE-CSE-Phase1-DemoKey"
             st.rerun()
 
-    st.caption("🔒 All encryptions run locally in-memory. No image data is sent to external servers.")
+    st.caption("🔒 All encryptions run locally in-memory. Zero image data is sent to external servers.")
+
+
+# -----------------------------------------------------------------------------
+# Main Header & Responsive Top Navigation
+# -----------------------------------------------------------------------------
+
+st.markdown('<div class="hero-title">🔐 Team Image Encryptor</div>', unsafe_allow_html=True)
+st.markdown(
+    '<div class="hero-subtitle">Military-Grade 5D Hyper-Chaotic Pixel Scrambling & Chained Modular Diffusion • Lossless Recovery • Mobile & Cloud Ready</div>',
+    unsafe_allow_html=True,
+)
+
+# Responsive Top Navigation Bar (effortless 1-tap mobile navigation)
+if hasattr(st, "segmented_control"):
+    top_nav = st.segmented_control(
+        "Navigation",
+        options=NAV_PAGES,
+        default=st.session_state["nav_page"],
+        key="top_nav_selector",
+        label_visibility="collapsed",
+        on_change=on_top_nav_change,
+    )
+elif hasattr(st, "pills"):
+    top_nav = st.pills(
+        "Navigation",
+        options=NAV_PAGES,
+        default=st.session_state["nav_page"],
+        key="top_nav_selector",
+        label_visibility="collapsed",
+        on_change=on_top_nav_change,
+    )
+
+page_choice = st.session_state["nav_page"]
 
 
 # -----------------------------------------------------------------------------
@@ -288,28 +554,23 @@ with st.sidebar:
 # -----------------------------------------------------------------------------
 
 if page_choice == "🛡️ Encrypt & Decrypt Studio":
-    st.markdown('<div class="hero-title">🔐 Team Image Encryptor</div>', unsafe_allow_html=True)
-    st.markdown(
-        '<div class="hero-subtitle">Military-Grade 5D Hyper-Chaotic Pixel Scrambling & Chained Modular Diffusion • Zero Data Loss</div>',
-        unsafe_allow_html=True,
-    )
 
     # Active Secret Key Banner
-    with st.container():
-        st.markdown(
-            f"""
-            <div class="crypto-card" style="padding: 0.85rem 1.25rem;">
-                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
-                    <div>
-                        <span style="font-size: 0.82rem; color: #94a3b8; text-transform: uppercase; font-weight: 700;">Active Secret Key:</span>
-                        <code style="color: #38bdf8; font-size: 0.95rem; margin-left: 8px;">{st.session_state['secret_key']}</code>
-                    </div>
-                    <span class="badge-ready">Active for Encrypt & Decrypt</span>
-                </div>
+    st.markdown(
+        f"""
+        <div class="key-banner">
+            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                <span style="font-size: 0.8rem; color: #94a3b8; text-transform: uppercase; font-weight: 700; letter-spacing: 0.05em;">Active Secret Key:</span>
+                <span class="key-text-wrap">{st.session_state['secret_key']}</span>
             </div>
-            """,
-            unsafe_allow_html=True,
-        )
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <span class="badge-ready">● Ready</span>
+                <span class="badge-algo">5D Lorenz</span>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
     # Studio Tabs
     tab_encrypt, tab_decrypt, tab_compare = st.tabs([
@@ -330,35 +591,62 @@ if page_choice == "🛡️ Encrypt & Decrypt Studio":
                 "Upload Image (PNG, JPG, JPEG, WEBP, BMP)",
                 type=["png", "jpg", "jpeg", "webp", "bmp"],
                 key="enc_uploader",
-                help="Select any image from your computer or phone. PNG is recommended for lossless pixel preservation.",
+                help="Select any image from your computer or phone gallery/camera. PNG is recommended for lossless preservation.",
             )
+
+            col_demo1, col_demo2 = st.columns(2)
+            with col_demo1:
+                if st.button("📷 Load Demo Photo", use_container_width=True, help="Instantly load sample image from repository for one-click testing"):
+                    if os.path.exists("image.png"):
+                        demo_img = Image.open("image.png").convert("RGB")
+                        st.session_state["last_orig_array"] = np.array(demo_img, dtype=np.uint8)
+                        st.session_state["last_original_bytes"] = rgb_array_to_png_bytes(st.session_state["last_orig_array"])
+                        st.session_state["last_cipher_array"] = None
+                        st.session_state["last_encrypted_bytes"] = None
+                        st.rerun()
+            with col_demo2:
+                if (st.session_state["last_orig_array"] is not None or uploaded_file is not None) and st.button("🧹 Clear", use_container_width=True):
+                    st.session_state["last_orig_array"] = None
+                    st.session_state["last_original_bytes"] = None
+                    st.session_state["last_cipher_array"] = None
+                    st.session_state["last_encrypted_bytes"] = None
+                    st.rerun()
 
         with col_u2:
             st.markdown(
                 """
                 <div class="team-notice" style="margin-top: 0;">
                     <b>🛡️ Security Instructions:</b><br>
-                    1. Upload photo & verify the secret key.<br>
-                    2. Click <b>Encrypt Image</b>.<br>
-                    3. Download <b><code>encrypted-team-image.png</code></b>.<br>
-                    4. Share the PNG file with your teammate (via email, WhatsApp document, or Drive).<br>
+                    1. Upload a photo or tap <b>📷 Load Demo Photo</b>.<br>
+                    2. Verify or set your secret encryption key.<br>
+                    3. Click <b>🔒 Encrypt Image Now</b>.<br>
+                    4. Download <b><code>encrypted-team-image.png</code></b>.<br>
+                    5. Share the PNG file with your teammate (WhatsApp as Document, Drive, or Email).<br>
                     <i>⚠️ Note: Never send as compressed JPEG to avoid pixel compression loss.</i>
                 </div>
                 """,
                 unsafe_allow_html=True,
             )
 
+        # Determine active original image
         if uploaded_file is not None:
             raw_rgb = pil_or_bytes_to_rgb_array(uploaded_file)
             st.session_state["last_orig_array"] = raw_rgb
             st.session_state["last_original_bytes"] = rgb_array_to_png_bytes(raw_rgb)
+        elif st.session_state["last_orig_array"] is not None:
+            raw_rgb = st.session_state["last_orig_array"]
+        else:
+            raw_rgb = None
 
+        if raw_rgb is not None:
             h_orig, w_orig, c_orig = raw_rgb.shape
+            orig_size_kb = len(st.session_state["last_original_bytes"]) / 1024 if st.session_state["last_original_bytes"] else 0.0
+
             col_m1, col_m2, col_m3, col_m4 = st.columns(4)
             with col_m1:
                 st.markdown(f'<div class="metric-box"><div class="metric-value">{w_orig}×{h_orig}</div><div class="metric-label">Resolution</div></div>', unsafe_allow_html=True)
             with col_m2:
-                st.markdown(f'<div class="metric-box"><div class="metric-value">{len(uploaded_file.getvalue()) / 1024:.1f} KB</div><div class="metric-label">File Size</div></div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="metric-box"><div class="metric-value">{orig_size_kb:.1f} KB</div><div class="metric-label">File Size</div></div>', unsafe_allow_html=True)
             with col_m3:
                 st.markdown(f'<div class="metric-box"><div class="metric-value">{c_orig}</div><div class="metric-label">Channels (RGB)</div></div>', unsafe_allow_html=True)
             with col_m4:
@@ -424,7 +712,7 @@ if page_choice == "🛡️ Encrypt & Decrypt Studio":
                         use_container_width=True,
                     )
                     cipher_entropy = M.shannon_entropy(st.session_state["last_cipher_array"])
-                    st.info(f"📊 Cipher Shannon Entropy: **{cipher_entropy:.4f} / 8.0000** (Textbook ideal randomness achieved)")
+                    st.info(f"📊 Cipher Shannon Entropy: **{cipher_entropy:.4f} / 8.0000** (Ideal cryptographic randomness)")
 
     # -------------------------------------------------------------------------
     # TAB 2: DECRYPT IMAGE
@@ -441,6 +729,19 @@ if page_choice == "🛡️ Encrypt & Decrypt Studio":
                 help="Upload the encrypted-team-image.png received from your teammate.",
             )
 
+            col_dec_quick1, col_dec_quick2 = st.columns(2)
+            with col_dec_quick1:
+                if st.session_state["last_encrypted_bytes"] is not None:
+                    if st.button("📥 Load Last Encrypted", use_container_width=True, help="Load ciphertext encrypted in Tab 1"):
+                        st.session_state["dec_cipher_preview"] = st.session_state["last_cipher_array"]
+                        st.rerun()
+            with col_dec_quick2:
+                if ("dec_cipher_preview" in st.session_state or cipher_file is not None) and st.button("🧹 Clear Cipher", use_container_width=True):
+                    st.session_state.pop("dec_cipher_preview", None)
+                    st.session_state["last_decrypted_array"] = None
+                    st.session_state["last_decrypted_bytes"] = None
+                    st.rerun()
+
         with col_d2:
             st.markdown(
                 """
@@ -448,20 +749,13 @@ if page_choice == "🛡️ Encrypt & Decrypt Studio":
                     <b>🔓 Decryption Instructions:</b><br>
                     1. Upload the <code>.png</code> file received from the sender.<br>
                     2. Enter the <b>exact shared secret key</b>.<br>
-                    3. Click <b>Decrypt Image</b>.<br>
+                    3. Click <b>🔓 Decrypt Image Now</b>.<br>
                     4. View the original restored image and download it.<br>
                     <i>⚠️ If an incorrect key is provided, hyper-chaotic sensitivity will output static noise.</i>
                 </div>
                 """,
                 unsafe_allow_html=True,
             )
-
-        # Quick action: load from previous encrypt if available
-        if cipher_file is None and st.session_state["last_encrypted_bytes"] is not None:
-            if st.button("📥 Load Last Encrypted Image from Tab 1 for Testing", use_container_width=False):
-                cipher_rgb = st.session_state["last_cipher_array"]
-                st.session_state["dec_cipher_preview"] = cipher_rgb
-                st.rerun()
 
         active_cipher_rgb = None
         if cipher_file is not None:
@@ -483,7 +777,7 @@ if page_choice == "🛡️ Encrypt & Decrypt Studio":
                     key="dec_tab_key_input",
                 )
 
-                col_b1, col_b2 = st.columns([1.5, 1])
+                col_b1, col_b2 = st.columns([1.4, 1])
                 with col_b1:
                     decrypt_btn = st.button("🔓 Decrypt Image Now", type="primary", use_container_width=True)
                 with col_b2:
@@ -513,7 +807,7 @@ if page_choice == "🛡️ Encrypt & Decrypt Studio":
                             st.session_state["last_decrypted_array"] = restored_rgb
 
                             if wrong_key_btn:
-                                st.warning(f"⚠️ Decrypted with incorrect key '{test_key}'. Observe the static noise below:")
+                                st.warning(f"⚠️ Decrypted with incorrect key '{test_key}'. Observe static noise below:")
                             else:
                                 st.success(f"✅ Decryption completed in {t_elapsed:.3f}s!")
 
@@ -557,14 +851,33 @@ if page_choice == "🛡️ Encrypt & Decrypt Studio":
         col_t1, col_t2 = st.columns([1.5, 1])
         with col_t1:
             test_upload = st.file_uploader("Select sample image for instant roundtrip", type=["png", "jpg", "jpeg", "webp"], key="loop_uploader")
+            col_loop_btn1, col_loop_btn2 = st.columns(2)
+            with col_loop_btn1:
+                if st.button("📷 Use Demo Photo for Loop", use_container_width=True):
+                    if os.path.exists("image.png"):
+                        demo_loop = Image.open("image.png").convert("RGB")
+                        st.session_state["loop_sample_array"] = np.array(demo_loop, dtype=np.uint8)
+                        st.rerun()
+            with col_loop_btn2:
+                if st.session_state.get("loop_sample_array") is not None and st.button("🧹 Clear Loop Demo", use_container_width=True):
+                    st.session_state.pop("loop_sample_array", None)
+                    st.rerun()
+
         with col_t2:
             loop_key = st.text_input("Roundtrip Key", value=st.session_state["secret_key"], key="loop_key")
 
+        active_loop_img = None
         if test_upload is not None:
-            loop_img = pil_or_bytes_to_rgb_array(test_upload)
+            active_loop_img = pil_or_bytes_to_rgb_array(test_upload)
+        elif st.session_state.get("loop_sample_array") is not None:
+            active_loop_img = st.session_state["loop_sample_array"]
+
+        if active_loop_img is not None:
             if st.button("⚡ Run Instant Full Roundtrip", type="primary", use_container_width=True):
                 with st.spinner("Running complete encryption and decryption loop..."):
                     t0 = time.time()
+                    loop_img = active_loop_img.copy()
+
                     if "512×512" in resolution_mode:
                         loop_img = cv2.resize(loop_img, (512, 512), interpolation=cv2.INTER_AREA)
 
@@ -585,7 +898,7 @@ if page_choice == "🛡️ Encrypt & Decrypt Studio":
                     lossless = np.array_equal(loop_img, d_img)
 
                     st.markdown("---")
-                    st.markdown(f"##### Results (Completed in {t_total:.3f}s • Lossless: **{lossless}**)")
+                    st.markdown(f"##### Results (Completed in {t_total:.3f}s • Lossless Bit-Exact: **{lossless}**)")
 
                     c1, c2, c3 = st.columns(3)
                     with c1:
@@ -774,7 +1087,7 @@ elif page_choice == "🔑 Key Generator & Vault":
         if "unlocked_key_result" in st.session_state:
             st.markdown("##### Unlocked Secret Key:")
             st.code(st.session_state["unlocked_key_result"], language="text")
-            if st.button("⚡ Set as Active Studio Key", key="set_active_unlocked"):
+            if st.button("⚡ Set as Active Studio Key", key="set_active_unlocked", use_container_width=True):
                 st.session_state["secret_key"] = st.session_state["unlocked_key_result"]
                 st.rerun()
 
@@ -791,10 +1104,14 @@ elif page_choice == "📊 Security & Metrics Analysis":
     )
 
     if st.session_state["last_orig_array"] is None or st.session_state["last_cipher_array"] is None:
-        st.warning("⚠️ No encrypted image in current session. Encrypt an image in the 'Studio' tab or click below to run benchmark on a sample image:")
-        if st.button("🚀 Load Sample Image & Run Benchmark Now", type="primary"):
-            from skimage import data
-            sample_rgb = data.astronaut()
+        st.warning("⚠️ No encrypted image in current session. Encrypt an image in the 'Studio' tab or click below to run benchmark on sample image:")
+        if st.button("🚀 Load Sample Image & Run Benchmark Now", type="primary", use_container_width=True):
+            if os.path.exists("image.png"):
+                sample_img = Image.open("image.png").convert("RGB")
+                sample_rgb = np.array(sample_img, dtype=np.uint8)
+            else:
+                from skimage import data
+                sample_rgb = data.astronaut()
             sample_rgb = cv2.resize(sample_rgb, (512, 512))
             st.session_state["last_orig_array"] = sample_rgb
             st.session_state["last_cipher_array"] = cipher.encrypt_image_flexible(sample_rgb, st.session_state["secret_key"], rounds=1)
@@ -809,7 +1126,6 @@ elif page_choice == "📊 Security & Metrics Analysis":
 
         col_m1, col_m2, col_m3, col_m4 = st.columns(4)
         with col_m1:
-            ent_orig = M.shannon_entropy(orig)
             ent_ciph = M.shannon_entropy(ciph)
             st.markdown(
                 f'<div class="metric-box"><div class="metric-value">{ent_ciph:.4f}</div><div class="metric-label">Cipher Entropy (Ideal: 8.00)</div></div>',
@@ -834,10 +1150,24 @@ elif page_choice == "📊 Security & Metrics Analysis":
             )
 
         st.markdown("---")
-        st.markdown("#### 📈 RGB Histogram Comparison (Original vs Cipher)")
-        st.caption("A secure cipher image displays a completely flat, uniform distribution across all 256 pixel levels, concealing all statistical characteristics of the plain image.")
+        col_h_header, col_h_toggle = st.columns([2, 1])
+        with col_h_header:
+            st.markdown("#### 📈 RGB Histogram Comparison (Original vs Cipher)")
+            st.caption("A secure cipher image displays a flat, uniform distribution across all 256 pixel levels.")
+        with col_h_toggle:
+            plot_layout = st.radio(
+                "Histogram View",
+                ["📱 Stacked (Mobile / High Detail)", "🖥️ Side-by-Side (Desktop)"],
+                index=0,
+                horizontal=True,
+                label_visibility="collapsed",
+            )
 
-        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 3.8))
+        if "Stacked" in plot_layout:
+            fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(8, 6.2), dpi=100)
+        else:
+            fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(11, 4.0), dpi=100)
+
         fig.patch.set_facecolor('#0f172a')
         ax1.set_facecolor('#1e293b')
         ax2.set_facecolor('#1e293b')
@@ -848,18 +1178,18 @@ elif page_choice == "📊 Security & Metrics Analysis":
         for i, col in enumerate(colors):
             hist_orig, _ = np.histogram(orig[:, :, i], bins=256, range=(0, 256))
             hist_ciph, _ = np.histogram(ciph[:, :, i], bins=256, range=(0, 256))
-            ax1.plot(hist_orig, color=col, label=channel_names[i], linewidth=1)
-            ax2.plot(hist_ciph, color=col, label=channel_names[i], linewidth=1)
+            ax1.plot(hist_orig, color=col, label=channel_names[i], linewidth=1.2)
+            ax2.plot(hist_ciph, color=col, label=channel_names[i], linewidth=1.2)
 
         ax1.set_title("Original Plaintext Histogram", color='#f8fafc', fontsize=11, fontweight='bold')
         ax1.set_xlim(0, 255)
         ax1.tick_params(colors='#94a3b8')
-        ax1.legend(facecolor='#0f172a', edgecolor='#334155', labelcolor='#e2e8f0')
+        ax1.legend(facecolor='#0f172a', edgecolor='#334155', labelcolor='#e2e8f0', fontsize=8)
 
         ax2.set_title("Ciphertext Histogram (Uniform Flat Distribution)", color='#f8fafc', fontsize=11, fontweight='bold')
         ax2.set_xlim(0, 255)
         ax2.tick_params(colors='#94a3b8')
-        ax2.legend(facecolor='#0f172a', edgecolor='#334155', labelcolor='#e2e8f0')
+        ax2.legend(facecolor='#0f172a', edgecolor='#334155', labelcolor='#e2e8f0', fontsize=8)
 
         plt.tight_layout()
         st.pyplot(fig)
@@ -868,7 +1198,7 @@ elif page_choice == "📊 Security & Metrics Analysis":
         # Differential attack NPCR / UACI test button
         st.markdown("---")
         st.markdown("#### 🧪 One-Pixel Differential Attack Resistance (NPCR / UACI)")
-        if st.button("Run Live 1-Pixel Perturbation Test", use_container_width=False):
+        if st.button("Run Live 1-Pixel Perturbation Test", use_container_width=True):
             with st.spinner("Encrypting 1-pixel modified image to measure differential diffusion..."):
                 orig_mod = orig.copy()
                 orig_mod[0, 0, 0] ^= 1
@@ -897,7 +1227,7 @@ elif page_choice == "📖 Team Protocol & Guide":
             <ol style="color: #cbd5e1; line-height: 1.8;">
                 <li><b>Sender (Encrypt):</b>
                     <ul>
-                        <li>Opens the <b>Studio</b> tab and uploads the original photo.</li>
+                        <li>Opens the <b>Studio</b> tab and uploads the original photo (or taps demo photo).</li>
                         <li>Inputs or generates a shared secret key (e.g. <code>EWCE-CSE-Phase1-DemoKey</code>).</li>
                         <li>Clicks <b>Encrypt Image</b> and downloads <b><code>encrypted-team-image.png</code></b>.</li>
                         <li>Sends the PNG file to the teammate (via WhatsApp as Document, Google Drive, Telegram, or Email).</li>
@@ -911,7 +1241,7 @@ elif page_choice == "📖 Team Protocol & Guide":
                 <li><b>Receiver (Decrypt):</b>
                     <ul>
                         <li>Opens the <b>Studio</b> tab and uploads the received <code>.png</code> file.</li>
-                        <li>Inputs the same secret key (or unlocks the <code>.keyvault</code> file).</li>
+                        <li>Inputs the exact secret key (or unlocks the <code>.keyvault</code> file).</li>
                         <li>Clicks <b>Decrypt Image</b> to instantly recover the exact original photo.</li>
                     </ul>
                 </li>
@@ -930,38 +1260,40 @@ elif page_choice == "📖 Team Protocol & Guide":
         <div class="crypto-card">
             <h4 style="color: #38bdf8; margin-top: 0;">🔬 Academic Methodology & Architecture</h4>
             <p style="color: #cbd5e1;">Matches the Department of CSE, EWCE Project Phase-1 Review specification:</p>
-            <table style="width: 100%; border-collapse: collapse; color: #cbd5e1; font-size: 0.9rem;">
-                <tr style="border-bottom: 1px solid #334155; text-align: left;">
-                    <th style="padding: 8px; color: #38bdf8;">Pipeline Step</th>
-                    <th style="padding: 8px; color: #38bdf8;">Mathematical Method</th>
-                    <th style="padding: 8px; color: #38bdf8;">Implementation Function</th>
-                </tr>
-                <tr style="border-bottom: 1px solid #1e293b;">
-                    <td style="padding: 8px;">1. Key Schedule</td>
-                    <td style="padding: 8px;">SHA-384 Hash splits into 5 initial conditions & parameter jitter</td>
-                    <td style="padding: 8px;"><code>derive_seed_from_key()</code></td>
-                </tr>
-                <tr style="border-bottom: 1px solid #1e293b;">
-                    <td style="padding: 8px;">2. Hyper-Chaotic Keystream</td>
-                    <td style="padding: 8px;">5D Lorenz-type ODE with Runge-Kutta 4 (RK4) integration</td>
-                    <td style="padding: 8px;"><code>integrate_5d_system()</code></td>
-                </tr>
-                <tr style="border-bottom: 1px solid #1e293b;">
-                    <td style="padding: 8px;">3. 3D Pixel Scrambling</td>
-                    <td style="padding: 8px;">512×512 to 64³ voxel cube transformation & chaotic permutation</td>
-                    <td style="padding: 8px;"><code>channel_to_cube()</code>, <code>scramble_cube()</code></td>
-                </tr>
-                <tr style="border-bottom: 1px solid #1e293b;">
-                    <td style="padding: 8px;">4. Chained Diffusion</td>
-                    <td style="padding: 8px;">Adaptive modular addition mod 256 across all channels</td>
-                    <td style="padding: 8px;"><code>diffuse()</code>, <code>undiffuse()</code></td>
-                </tr>
-                <tr>
-                    <td style="padding: 8px;">5. Key Vault Protection</td>
-                    <td style="padding: 8px;">PBKDF2-HMAC-SHA256 (100k rounds) + AES-256-GCM AEAD</td>
-                    <td style="padding: 8px;"><code>key_vault.encrypt_key_with_password()</code></td>
-                </tr>
-            </table>
+            <div class="responsive-table-wrapper">
+                <table style="width: 100%; border-collapse: collapse; color: #cbd5e1; font-size: 0.9rem;">
+                    <tr style="border-bottom: 1px solid #334155; text-align: left;">
+                        <th style="padding: 10px 8px; color: #38bdf8; white-space: nowrap;">Pipeline Step</th>
+                        <th style="padding: 10px 8px; color: #38bdf8;">Mathematical Method</th>
+                        <th style="padding: 10px 8px; color: #38bdf8; white-space: nowrap;">Implementation Function</th>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #1e293b;">
+                        <td style="padding: 10px 8px; white-space: nowrap;">1. Key Schedule</td>
+                        <td style="padding: 10px 8px;">SHA-384 Hash splits into 5 initial conditions & parameter jitter</td>
+                        <td style="padding: 10px 8px;"><code>derive_seed_from_key()</code></td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #1e293b;">
+                        <td style="padding: 10px 8px; white-space: nowrap;">2. Hyper-Chaotic Keystream</td>
+                        <td style="padding: 10px 8px;">5D Lorenz-type ODE with Runge-Kutta 4 (RK4) integration</td>
+                        <td style="padding: 10px 8px;"><code>integrate_5d_system()</code></td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #1e293b;">
+                        <td style="padding: 10px 8px; white-space: nowrap;">3. 3D Pixel Scrambling</td>
+                        <td style="padding: 10px 8px;">512×512 to 64³ voxel cube transformation & chaotic permutation</td>
+                        <td style="padding: 10px 8px;"><code>channel_to_cube()</code>, <code>scramble_cube()</code></td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #1e293b;">
+                        <td style="padding: 10px 8px; white-space: nowrap;">4. Chained Diffusion</td>
+                        <td style="padding: 10px 8px;">Adaptive modular addition mod 256 across all channels</td>
+                        <td style="padding: 10px 8px;"><code>diffuse()</code>, <code>undiffuse()</code></td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 10px 8px; white-space: nowrap;">5. Key Vault Protection</td>
+                        <td style="padding: 10px 8px;">PBKDF2-HMAC-SHA256 (100k rounds) + AES-256-GCM AEAD</td>
+                        <td style="padding: 10px 8px;"><code>key_vault.encrypt_key_with_password()</code></td>
+                    </tr>
+                </table>
+            </div>
         </div>
         """,
         unsafe_allow_html=True,
